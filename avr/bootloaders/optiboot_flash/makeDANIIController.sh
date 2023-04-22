@@ -1,0 +1,1 @@
+make atmega328p AVR_FREQ=16000000L DANII=1

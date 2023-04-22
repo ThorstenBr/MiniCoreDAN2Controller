@@ -273,6 +273,39 @@ optiboot_version = 256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER;
 #define LED_START_FLASHES 0
 #endif
 
+#ifdef DANII
+#warning Compiling bootloader variant for the DAN][ controller...
+
+#define DISABLE_CS() do { PORTB = 0x07;DDRB |= 0x07;PORTB = 0x07; } while (0)
+#define DISABLE_RXTX_PINS() UCSR0B &= ~(_BV(RXEN0)|_BV(TXEN0)|_BV(RXCIE0)|_BV(UDRIE0))
+
+#define DATAPORT_MODE_TRANS() DDRD = 0xFF
+#define DATAPORT_MODE_RECEIVE() do { PORTD = 0x00; DDRD = 0x00; } while (0)
+
+#define READ_DATAPORT() (PIND)
+#define WRITE_DATAPORT(x) do { uint8_t temp = (x); PORTD=temp; PORTD=temp; } while (0)
+
+#define READ_OBFA() (PINC & 0x08)
+#define READ_IBFA() (PINC & 0x02)
+#define ACK_LOW_SINGLE() PORTC &= ~_BV(2)
+#define ACK_HIGH_SINGLE() PORTC |= _BV(2)
+#define STB_LOW_SINGLE() PORTC &= ~_BV(0)
+#define STB_HIGH_SINGLE() PORTC |= _BV(0)
+
+/* Needed to slow down data send for 82C55 */
+#define ACK_LOW() do { ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); } while (0)
+#define ACK_HIGH() do { ACK_HIGH_SINGLE();  } while (0)
+#define STB_LOW() do { STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); } while (0)
+#define STB_HIGH() do { STB_HIGH_SINGLE(); } while (0)
+
+#define INITIALIZE_CONTROL_PORT() do { \
+  PORTC |= (_BV(0) | _BV(1) | _BV(2) | _BV(3)); \
+  DDRC |= (_BV(0) | _BV(2)); \
+  DDRC &= ~(_BV(1) | _BV(3)); \
+  PORTC |= (_BV(0) | _BV(1) | _BV(2) | _BV(3)); \
+} while (0)
+
+#else // DANII
 /* set the UART baud rate defaults */
 #ifndef BAUD_RATE
 #if F_CPU >= 8000000L
@@ -323,6 +356,8 @@ optiboot_version = 256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER;
 #error Unachievable baud rate (too fast) BAUD_RATE 
 #endif
 #endif // baud rate fast check
+
+#endif // DANII
 
 /* Watchdog settings */
 #define WATCHDOG_OFF    (0)
@@ -587,6 +622,15 @@ int main(void) {
   TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
 #endif
 
+#ifdef DANII
+  DISABLE_CS(); // all CS lines to HIGH
+  INITIALIZE_CONTROL_PORT(); // initialize DAN][ controller ports
+  DISABLE_RXTX_PINS();  // PORTD is required for Apple II communication
+  DATAPORT_MODE_RECEIVE();
+
+  // Set up watchdog to trigger after 250ms
+  watchdogConfig(WATCHDOG_250MS);
+#else
 #ifndef SOFT_UART
 // ATmega8/8515/8535/16/32 only has one UART port
 #if defined(__AVR_ATmega8__) || defined (__AVR_ATmega8515__) || defined (__AVR_ATmega8535__) \
@@ -613,15 +657,18 @@ int main(void) {
 
   // Set up watchdog to trigger after 1s
   watchdogConfig(WATCHDOG_1S);
+#endif // DANII
 
 #if (LED_START_FLASHES > 0) || defined(LED_DATA_FLASH) || defined(LED_START_ON)
   /* Set LED pin as output */
   LED_DDR |= _BV(LED);
 #endif
 
+#ifndef DANII
 #ifdef SOFT_UART
   /* Set TX pin as output */
   UART_DDR |= _BV(UART_TX_BIT);
+#endif
 #endif
 
 #if LED_START_FLASHES > 0
@@ -818,6 +865,16 @@ int main(void) {
 }
 
 void putch(char ch) {
+#ifdef DANII
+  while (READ_IBFA() != 0);
+  DATAPORT_MODE_TRANS();
+  WRITE_DATAPORT(ch);
+  STB_LOW();
+  STB_HIGH();
+  DATAPORT_MODE_RECEIVE();
+  watchdogReset();
+#else
+
 #ifndef SOFT_UART
   while (!(UART_SRA & _BV(UDRE0)));
   UART_UDR = ch;
@@ -845,10 +902,19 @@ void putch(char ch) {
       "r25"
   );
 #endif
+#endif // DANII
 }
 
 uint8_t getch(void) {
   uint8_t ch;
+#ifdef DANII
+
+  while (READ_OBFA() != 0);
+  ACK_LOW();
+  ch = READ_DATAPORT();
+  ACK_HIGH();
+
+#else
 
 #ifdef LED_DATA_FLASH
 #if defined(__AVR_ATmega8__) || defined(__AVR_ATmega8515__) || defined(__AVR_ATmega8535__) \
@@ -913,6 +979,7 @@ uint8_t getch(void) {
 #endif
 #endif
 
+#endif // DANII
   return ch;
 }
 

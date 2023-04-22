@@ -133,9 +133,16 @@ ifdef BAUD_RATE
 BAUD_RATE_CMD = -DBAUD_RATE=$(BAUD_RATE)
 dummy = FORCE
 else
+ifdef DANII
+# make atmega328p AVR_FREQ=16000000L DANII=1
+BAUD_RATE_CMD = -DDANII=1
+BAUD_RATE=DANII
+dummy = FORCE
+else
 $(info )
 $(info Error BAUD_RATE not specified!)
 MISSING_PARAMETERS=TRUE
+endif
 endif
 
 endif
