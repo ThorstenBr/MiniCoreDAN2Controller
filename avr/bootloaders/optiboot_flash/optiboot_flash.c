@@ -684,6 +684,9 @@ int main(void) {
     /* get character from UART */
     ch = getch();
 
+#ifdef DANII
+    while (ch==0xAC); // lock up and wait for watchdog reset when "AC" is received as command byte: this is the sync byte of the DANII protocol
+#endif
     if(ch == STK_GET_PARAMETER) {
       unsigned char which = getch();
       verifySpace();
