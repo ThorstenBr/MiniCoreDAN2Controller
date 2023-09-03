@@ -275,36 +275,7 @@ optiboot_version = 256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER;
 
 #ifdef DANII
 #warning Compiling bootloader variant for the DAN][ controller...
-
-#define DISABLE_CS() do { PORTB = 0x07;DDRB |= 0x07;PORTB = 0x07; } while (0)
-#define DISABLE_RXTX_PINS() UCSR0B &= ~(_BV(RXEN0)|_BV(TXEN0)|_BV(RXCIE0)|_BV(UDRIE0))
-
-#define DATAPORT_MODE_TRANS() DDRD = 0xFF
-#define DATAPORT_MODE_RECEIVE() do { PORTD = 0x00; DDRD = 0x00; } while (0)
-
-#define READ_DATAPORT() (PIND)
-#define WRITE_DATAPORT(x) do { uint8_t temp = (x); PORTD=temp; PORTD=temp; } while (0)
-
-#define READ_OBFA() (PINC & 0x08)
-#define READ_IBFA() (PINC & 0x02)
-#define ACK_LOW_SINGLE() PORTC &= ~_BV(2)
-#define ACK_HIGH_SINGLE() PORTC |= _BV(2)
-#define STB_LOW_SINGLE() PORTC &= ~_BV(0)
-#define STB_HIGH_SINGLE() PORTC |= _BV(0)
-
-/* Needed to slow down data send for 82C55 */
-#define ACK_LOW() do { ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); ACK_LOW_SINGLE(); } while (0)
-#define ACK_HIGH() do { ACK_HIGH_SINGLE();  } while (0)
-#define STB_LOW() do { STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); STB_LOW_SINGLE(); } while (0)
-#define STB_HIGH() do { STB_HIGH_SINGLE(); } while (0)
-
-#define INITIALIZE_CONTROL_PORT() do { \
-  PORTC |= (_BV(0) | _BV(1) | _BV(2) | _BV(3)); \
-  DDRC |= (_BV(0) | _BV(2)); \
-  DDRC &= ~(_BV(1) | _BV(3)); \
-  PORTC |= (_BV(0) | _BV(1) | _BV(2) | _BV(3)); \
-} while (0)
-
+#include "dan2pindefs.h"
 #else // DANII
 /* set the UART baud rate defaults */
 #ifndef BAUD_RATE
@@ -698,6 +669,8 @@ int main(void) {
     putch(optiboot_version & 0xFF);
       } else if (which == STK_SW_MAJOR) {
     putch(optiboot_version >> 8);
+      } else if (which == STK_DANII_TYPE) { // custom parameter for DANII boards
+    putch(DAN_CARD);
       } else {
   /*
    * GET PARAMETER returns a generic 0x03 reply for
