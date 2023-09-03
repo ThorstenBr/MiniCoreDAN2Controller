@@ -669,8 +669,10 @@ int main(void) {
     putch(optiboot_version & 0xFF);
       } else if (which == STK_SW_MAJOR) {
     putch(optiboot_version >> 8);
+#ifdef DANII
       } else if (which == STK_DANII_TYPE) { // custom parameter for DANII boards
     putch(DAN_CARD);
+#endif
       } else {
   /*
    * GET PARAMETER returns a generic 0x03 reply for
